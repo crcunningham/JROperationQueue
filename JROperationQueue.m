@@ -84,83 +84,83 @@
         dispatch_after(popTime, self.queue, ^(void){
             [self processOperations];
             });
-        }
-
-        return requestId;
     }
 
-    - (NSUInteger)addHighPriorityOperationWithBlock:(void (^)(void))block
-    {
-        return [self addOperationWithBlock:block isHighPriority:YES];
-    }
+    return requestId;
+}
 
-    - (NSUInteger)addOperationWithBlock:(void (^)(void))block
-    {
-        return [self addOperationWithBlock:block isHighPriority:NO];
-    }
+- (NSUInteger)addHighPriorityOperationWithBlock:(void (^)(void))block
+{
+    return [self addOperationWithBlock:block isHighPriority:YES];
+}
 
-    - (void)processOperations
-    {
-        [self processOperationsInBlockArray:self.highPriorityBlocks];
-        [self processOperationsInBlockArray:self.standardPriorityBlocks];
-    }
+- (NSUInteger)addOperationWithBlock:(void (^)(void))block
+{
+    return [self addOperationWithBlock:block isHighPriority:NO];
+}
 
-    - (void)processOperationsInBlockArray:(NSMutableArray*)blocks
+- (void)processOperations
+{
+    [self processOperationsInBlockArray:self.highPriorityBlocks];
+    [self processOperationsInBlockArray:self.standardPriorityBlocks];
+}
+
+- (void)processOperationsInBlockArray:(NSMutableArray*)blocks
+{
+    @synchronized(self)
     {
-        @synchronized(self)
+        while (self.currentOperationCount < self.maxOperationsCount && [blocks count] > 0)
         {
-            while (self.currentOperationCount < self.maxOperationsCount && [blocks count] > 0)
-            {
-                NSUInteger index;
-                if (JROperationQueueTypeLIFO == self.type)
-                    index = [blocks count] - 1;
-                else // JROperationQueueTypeFIFO
-                    index = 0;
+            NSUInteger index;
+            if (JROperationQueueTypeLIFO == self.type)
+                index = [blocks count] - 1;
+            else // JROperationQueueTypeFIFO
+                index = 0;
 
-                void (^block)(void) = blocks[index];
-                [self.requestIdToBlockMap removeObjectForKey:@(index)];
-                [blocks removeObjectAtIndex:index];
+            void (^block)(void) = blocks[index];
+            [self.requestIdToBlockMap removeObjectForKey:@(index)];
+            [blocks removeObjectAtIndex:index];
 
-                self.currentOperationCount += 1;
-                dispatch_async(self.queue, ^{
-                    @autoreleasepool
-                    {
-                        block();
-                    }
-
-                    @synchronized(self)
-                    {
-                        self.currentOperationCount -= 1;
-                        [self processOperations];
-                    }
-                    });
-                }
-            }
-        }
-
-        - (void)cancelOperation:(NSUInteger)requestId
-        {
-            @synchronized(self)
-            {
-                void (^block)(void) = [self.requestIdToBlockMap objectForKey:@(requestId)];
-
-                if (block)
+            self.currentOperationCount += 1;
+            dispatch_async(self.queue, ^{
+                @autoreleasepool
                 {
-                    [self.highPriorityBlocks removeObject:block];
-                    [self.standardPriorityBlocks removeObject:block];
-                    [self.requestIdToBlockMap removeObjectForKey:@(requestId)];
+                    block();
                 }
-            }
-        }
 
-        - (void)cancelAllOperations
-        {
-            @synchronized(self)
-            {
-                [self.standardPriorityBlocks removeAllObjects];
-                [self.highPriorityBlocks removeAllObjects];
-                [self.requestIdToBlockMap removeAllObjects];
-            }
+                @synchronized(self)
+                {
+                    self.currentOperationCount -= 1;
+                    [self processOperations];
+                }
+            });
         }
+    }
+}
+
+- (void)cancelOperation:(NSUInteger)requestId
+{
+    @synchronized(self)
+    {
+        void (^block)(void) = [self.requestIdToBlockMap objectForKey:@(requestId)];
+
+        if (block)
+        {
+            [self.highPriorityBlocks removeObject:block];
+            [self.standardPriorityBlocks removeObject:block];
+            [self.requestIdToBlockMap removeObjectForKey:@(requestId)];
+        }
+    }
+}
+
+- (void)cancelAllOperations
+{
+    @synchronized(self)
+    {
+        [self.standardPriorityBlocks removeAllObjects];
+        [self.highPriorityBlocks removeAllObjects];
+        [self.requestIdToBlockMap removeAllObjects];
+    }
+}
 
 @end
