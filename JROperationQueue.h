@@ -23,8 +23,8 @@
 #import <Foundation/Foundation.h>
 
 typedef NS_ENUM(NSInteger, MCOperationQueueType) {
-	JROperationQueueTypeFIFO,
-	JROperationQueueTypeLIFO
+    JROperationQueueTypeFIFO,
+    JROperationQueueTypeLIFO
 };
 
 @interface JROperationQueue : NSObject
